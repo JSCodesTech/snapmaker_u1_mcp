@@ -30,6 +30,8 @@ Analysis and comparison:
 - `u1_analyze_gcode`
 - `u1_compare_slices`
 - `u1_compare_orientations`
+- `u1_transform_model`
+- `u1_compare_transformed_orientations`
 - `u1_inspect_model`
 - `u1_diagnose_model`
 - `u1_orientation_preflight`
@@ -102,6 +104,7 @@ Inspect a model:
 snapmaker-u1-mcp inspect-model hase.stl
 snapmaker-u1-mcp diagnose-model hase.stl
 snapmaker-u1-mcp orientation-preflight hase.stl
+snapmaker-u1-mcp transform-model hase.stl --rotate-x 90
 snapmaker-u1-mcp render-preview hase.stl --view summary
 ```
 
@@ -111,6 +114,15 @@ Slice:
 snapmaker-u1-mcp slice hase.stl \
   --process "0.20 Standard @Snapmaker U1 (0.4 nozzle)" \
   --filament "Snapmaker PLA Basic @U1"
+```
+
+Compare local mesh-transformed orientations without Snapmaker Orca CLI rotation flags:
+
+```bash
+snapmaker-u1-mcp compare-transformed-orientations hase.stl \
+  --process "0.20 Standard @Snapmaker U1 (0.4 nozzle)" \
+  --filament "Snapmaker PLA Basic @U1" \
+  --orientations '[{"name":"flat"},{"name":"x90","rotate_x":90},{"name":"y90","rotate_y":90}]'
 ```
 
 Slice with controlled overrides:

@@ -9,7 +9,8 @@ from .models import u1_inspect_model as inspect_model, u1_model_diagnostics as m
 from .preview import u1_render_preview as render_preview, u1_render_preview_bundle as render_preview_bundle
 from .thumbnail import u1_inject_thumbnail as inject_thumbnail
 from .profiles import ProfileSelection, ProfileStore, discover_profile_roots
-from .slicer import locate_slicer, list_models, run_smoke_slice, u1_analyze_gcode as analyze_gcode_file, u1_compare_orientations as compare_orientations, u1_compare_slices as compare_slices, u1_delete_run as delete_run, u1_get_run as get_run, u1_get_run_logs as get_run_logs, u1_health, u1_list_runs as list_runs, u1_slice as slice_model
+from .slicer import locate_slicer, list_models, run_smoke_slice, u1_analyze_gcode as analyze_gcode_file, u1_compare_orientations as compare_orientations, u1_compare_slices as compare_slices, u1_compare_transformed_orientations as compare_transformed_orientations, u1_delete_run as delete_run, u1_get_run as get_run, u1_get_run_logs as get_run_logs, u1_health, u1_list_runs as list_runs, u1_slice as slice_model
+from .transform import u1_transform_model as transform_model
 
 
 def _profile_store() -> ProfileStore:
@@ -133,6 +134,11 @@ def main() -> None:
     diagnose.add_argument("model")
     orient_preflight = sub.add_parser("orientation-preflight")
     orient_preflight.add_argument("model")
+    transform = sub.add_parser("transform-model")
+    transform.add_argument("model")
+    transform.add_argument("--rotate", type=float, default=0.0)
+    transform.add_argument("--rotate-x", type=float, default=0.0)
+    transform.add_argument("--rotate-y", type=float, default=0.0)
     preview = sub.add_parser("render-preview")
     preview.add_argument("model")
     preview.add_argument("--view", default="summary", choices=["summary", "top", "front", "side"])
@@ -156,6 +162,14 @@ def main() -> None:
     orient.add_argument("--nozzle", type=float, default=0.4)
     orient.add_argument("--overrides", help="JSON object of allowed process overrides")
     orient.add_argument("--verbose", action="store_true", help="include per-slice command and log tails")
+    transformed_orient = sub.add_parser("compare-transformed-orientations")
+    transformed_orient.add_argument("model")
+    transformed_orient.add_argument("--process", required=True)
+    transformed_orient.add_argument("--filament", required=True)
+    transformed_orient.add_argument("--orientations", help="JSON array of orientation objects; defaults to as-loaded/x90/y90/z90")
+    transformed_orient.add_argument("--nozzle", type=float, default=0.4)
+    transformed_orient.add_argument("--overrides", help="JSON object of allowed process overrides")
+    transformed_orient.add_argument("--verbose", action="store_true", help="include per-slice command and log tails")
     args = parser.parse_args()
 
     try:
@@ -191,6 +205,8 @@ def main() -> None:
             print(json.dumps(model_diagnostics(args.model), indent=2))
         elif args.command == "orientation-preflight":
             print(json.dumps(orientation_preflight(args.model), indent=2))
+        elif args.command == "transform-model":
+            print(json.dumps(transform_model(args.model, args.rotate, args.rotate_x, args.rotate_y), indent=2))
         elif args.command == "render-preview":
             print(json.dumps(render_preview(args.model, args.view), indent=2))
         elif args.command == "render-preview-bundle":
@@ -202,6 +218,10 @@ def main() -> None:
         elif args.command == "compare-orientations":
             overrides = json.loads(args.overrides) if args.overrides else None
             print(json.dumps(compare_orientations(args.model, args.process, args.filament, json.loads(args.orientations), args.nozzle, overrides, args.verbose), indent=2))
+        elif args.command == "compare-transformed-orientations":
+            overrides = json.loads(args.overrides) if args.overrides else None
+            orientations = json.loads(args.orientations) if args.orientations else None
+            print(json.dumps(compare_transformed_orientations(args.model, args.process, args.filament, orientations, args.nozzle, overrides, args.verbose), indent=2))
         else:
             # If launched by an MCP client, start stdio server when mcp is installed.
             _run_mcp_stdio()
@@ -283,6 +303,16 @@ def _run_mcp_stdio() -> None:
     def u1_compare_orientations(model: str, process: str, filament: str, orientations: list[dict], nozzle: float = 0.4, overrides: dict | None = None, verbose: bool = False) -> dict:
         """Slice and compare controlled orientation variants."""
         return compare_orientations(model, process, filament, orientations, nozzle, overrides, verbose)
+
+    @mcp.tool()
+    def u1_transform_model(model: str, rotate: float = 0.0, rotate_x: float = 0.0, rotate_y: float = 0.0) -> dict:
+        """Create a locally transformed STL copy under U1_OUTPUT_DIR/transformed."""
+        return transform_model(model, rotate, rotate_x, rotate_y)
+
+    @mcp.tool()
+    def u1_compare_transformed_orientations(model: str, process: str, filament: str, orientations: list[dict] | None = None, nozzle: float = 0.4, overrides: dict | None = None, verbose: bool = False) -> dict:
+        """Transform STL copies locally, then slice without Snapmaker Orca CLI rotation flags."""
+        return compare_transformed_orientations(model, process, filament, orientations, nozzle, overrides, verbose)
 
     @mcp.tool()
     def u1_inspect_model(model: str) -> dict:

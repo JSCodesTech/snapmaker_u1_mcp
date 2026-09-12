@@ -28,7 +28,8 @@ Example workflows for agents using `snapmaker-u1-mcp`.
 1. Call `u1_inspect_model`.
 2. Call `u1_orientation_preflight`.
 3. Prefer the as-loaded orientation when it fits and print quality is acceptable.
-4. Treat rotated slicing as an experiment because some Snapmaker Orca CLI rotation transforms can crash.
+4. If rotated slicing is needed, prefer `u1_compare_transformed_orientations`. It creates local transformed STL copies and slices those, avoiding Snapmaker Orca CLI rotation flags.
+5. Treat `u1_compare_orientations` as an engine-behavior experiment because some Snapmaker Orca CLI rotation transforms can crash.
 
 ## Debugging a failed run
 

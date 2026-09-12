@@ -83,7 +83,7 @@ snapmaker-u1-mcp get-run-logs RUN_ID --tail 4000
 Known Snapmaker Orca Linux CLI `01.10.01.50` issues:
 
 - flattened U1 process profiles containing `wipe_tower_filament` can segfault; generated runtime profiles intentionally omit it for single-material workflows
-- non-zero CLI rotation transforms can segfault; use `u1_orientation_preflight` before attempting rotated slice variants
+- non-zero CLI rotation transforms can segfault; use `u1_orientation_preflight` first, and prefer `u1_compare_transformed_orientations` when you need sliced rotated variants
 
 ## Paths are rejected
 

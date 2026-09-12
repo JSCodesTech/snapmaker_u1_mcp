@@ -6,6 +6,8 @@ import os
 import re
 import shutil
 import subprocess
+import time
+import uuid
 
 from .config import Config
 from .errors import ConfigurationError, SlicerError
@@ -90,8 +92,32 @@ def u1_slice(
 ) -> dict:
     """Slice a model for Snapmaker U1 using validated single-material profiles."""
     config = Config.from_env()
-    binary = locate_slicer(config)
     model_path = _safe_model_path(config.model_dir, model)
+    return _u1_slice_model_path(
+        model_label=model,
+        model_path=model_path,
+        process=process,
+        filament=filament,
+        nozzle=nozzle,
+        overrides=overrides,
+        orientation=orientation,
+        verbose=verbose,
+    )
+
+
+def _u1_slice_model_path(
+    model_label: str,
+    model_path: Path,
+    process: str,
+    filament: str,
+    nozzle: float = 0.4,
+    overrides: dict | None = None,
+    orientation: dict | None = None,
+    verbose: bool = False,
+) -> dict:
+    """Internal slicer for already-validated model paths."""
+    config = Config.from_env()
+    binary = locate_slicer(config)
     run_dir = _new_run_dir(config.output_dir)
     roots = discover_profile_roots(config.profile_dir, binary)
     store = ProfileStore(roots)
@@ -109,7 +135,7 @@ def u1_slice(
         selected_machine = machines[0].name
 
     orientation_args, orientation_report = _orientation_args(orientation)
-    request = {"model": model, "machine": selected_machine, "process": process, "filament": filament, "nozzle": nozzle, "overrides": overrides or {}, "orientation": orientation_report}
+    request = {"model": model_label, "model_path": str(model_path), "machine": selected_machine, "process": process, "filament": filament, "nozzle": nozzle, "overrides": overrides or {}, "orientation": orientation_report}
     (run_dir / "request.json").write_text(json.dumps(request, indent=2), encoding="utf-8")
 
     profiles = store.validate_selection(ProfileSelection(
@@ -304,6 +330,84 @@ def u1_compare_orientations(
     result["process"] = process
     result["orientation_experiment"] = True
     return result
+
+
+def u1_compare_transformed_orientations(
+    model: str,
+    process: str,
+    filament: str,
+    orientations: list[dict] | None = None,
+    nozzle: float = 0.4,
+    overrides: dict | None = None,
+    verbose: bool = False,
+) -> dict:
+    """Transform STL copies locally, then slice without Snapmaker Orca CLI rotation flags."""
+    from .transform import transform_model_to_path
+
+    if orientations is None:
+        orientations = [
+            {"name": "as-loaded"},
+            {"name": "x90", "rotate_x": 90},
+            {"name": "y90", "rotate_y": 90},
+            {"name": "z90", "rotate": 90},
+        ]
+    if not isinstance(orientations, list) or not orientations:
+        raise ConfigurationError("orientations must be a non-empty list")
+
+    config = Config.from_env()
+    results = []
+    for index, orientation in enumerate(orientations):
+        if not isinstance(orientation, dict):
+            raise ConfigurationError(f"orientation {index} must be an object")
+        name = str(orientation.get("name") or _orientation_name(orientation, index))
+        _args, orientation_report = _orientation_args(orientation)
+        safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "-", name).strip(".-") or f"orientation-{index + 1}"
+        transform_dir = config.output_dir.expanduser().resolve() / "transformed" / f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}-{safe_name}"
+        transform = transform_model_to_path(
+            model,
+            transform_dir,
+            rotate=orientation_report.get("rotate", 0.0),
+            rotate_x=orientation_report.get("rotate_x", 0.0),
+            rotate_y=orientation_report.get("rotate_y", 0.0),
+        )
+        slice_result = _u1_slice_model_path(
+            model_label=f"{model} ({name}, transformed)",
+            model_path=Path(transform["output_path"]),
+            process=process,
+            filament=filament,
+            nozzle=nozzle,
+            overrides=overrides or {},
+            orientation=None,
+            verbose=verbose,
+        )
+        analysis = slice_result.get("analysis", {})
+        results.append({
+            "name": name,
+            "status": slice_result.get("status"),
+            "run_dir": slice_result.get("run_dir"),
+            "gcode": slice_result.get("gcode"),
+            "transformed_model": transform["output_path"],
+            "transform": {"rotate": transform["rotate"], "rotate_x": transform["rotate_x"], "rotate_y": transform["rotate_y"], "dimensions": transform.get("dimensions")},
+            "process": process,
+            "filament": filament,
+            "overrides": slice_result.get("overrides", {}),
+            "returncode": slice_result.get("returncode"),
+            "estimated_print_time": analysis.get("estimated_print_time"),
+            "filament_weight": analysis.get("filament_weight"),
+            "filament_length": analysis.get("filament_length"),
+            "layer_count": analysis.get("layer_count"),
+            "warnings": analysis.get("warnings", []),
+        })
+    return {
+        "status": "ok" if all(r["status"] == "ok" for r in results) else "error",
+        "model": model,
+        "process": process,
+        "filament": filament,
+        "nozzle": nozzle,
+        "local_mesh_transform": True,
+        "variants": results,
+        "table": _comparison_table(results),
+    }
 
 
 def _comparison_table(results: list[dict]) -> str:

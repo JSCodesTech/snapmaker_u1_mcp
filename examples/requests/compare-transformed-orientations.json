@@ -1,0 +1,14 @@
+{
+  "tool": "u1_compare_transformed_orientations",
+  "args": {
+    "model": "example.stl",
+    "process": "0.20 Standard @Snapmaker U1 (0.4 nozzle)",
+    "filament": "Snapmaker PLA Basic @U1",
+    "nozzle": 0.4,
+    "orientations": [
+      {"name": "flat"},
+      {"name": "x90", "rotate_x": 90},
+      {"name": "y90", "rotate_y": 90}
+    ]
+  }
+}
