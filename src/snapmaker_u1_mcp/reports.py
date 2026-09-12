@@ -73,6 +73,37 @@ def _read_json(path: Path) -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def u1_export_runs_report(run_ids: list[str], name: str = "comparison") -> dict:
+    if not run_ids:
+        raise ConfigurationError("run_ids must be a non-empty list")
+    config = Config.from_env()
+    out_dir = config.output_dir.expanduser().resolve() / "reports"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = "".join(ch if ch.isalnum() or ch in "._-" else "-" for ch in name).strip(".-") or "comparison"
+    report = out_dir / f"{safe_name}.md"
+    runs = [u1_get_run(run_id) for run_id in run_ids]
+    lines = [
+        f"# Run Comparison: {safe_name}",
+        "",
+        "| Run | Status | Model | Process | Filament | Time | Filament (g) | Layers |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for run in runs:
+        lines.append(
+            f"| {run.get('run_id')} | {run.get('status')} | {run.get('model')} | {run.get('process')} | "
+            f"{run.get('filament')} | {run.get('estimated_print_time')} | {run.get('filament_weight')} | {run.get('layer_count')} |"
+        )
+    lines.extend(["", "## Warnings", ""])
+    for run in runs:
+        warnings = run.get("warnings") or []
+        if warnings:
+            lines.append(f"### {run.get('run_id')}")
+            lines.extend(f"- {warning}" for warning in warnings)
+            lines.append("")
+    report.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return {"status": "ok", "report": str(report), "run_ids": run_ids}
+
+
 def u1_search_runs(model: str | None = None, filament: str | None = None, status: str | None = None, limit: int = 50) -> dict:
     runs = u1_list_runs(limit=100)["runs"]
     def matches(run: dict) -> bool:

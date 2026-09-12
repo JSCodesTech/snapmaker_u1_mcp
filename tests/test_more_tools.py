@@ -4,7 +4,7 @@ from pathlib import Path
 from snapmaker_u1_mcp import server
 from snapmaker_u1_mcp.models import u1_mesh_printability
 from snapmaker_u1_mcp.recipes import u1_compare_recipes, u1_get_recipe, u1_list_recipes
-from snapmaker_u1_mcp.reports import u1_export_run_report, u1_search_runs
+from snapmaker_u1_mcp.reports import u1_export_run_report, u1_export_runs_report, u1_search_runs
 
 
 def write_profile(path: Path, data: dict) -> None:
@@ -61,9 +61,11 @@ def test_search_and_export_run_report(tmp_path, monkeypatch):
 
     found = u1_search_runs(model="part")
     report = u1_export_run_report("20260912-100000-aaaaaaaa")
+    comparison = u1_export_runs_report(["20260912-100000-aaaaaaaa"], name="one-run")
 
     assert len(found["runs"]) == 1
     assert Path(report["report"]).exists()
+    assert Path(comparison["report"]).exists()
 
 
 def test_mesh_printability_basic(tmp_path, monkeypatch):

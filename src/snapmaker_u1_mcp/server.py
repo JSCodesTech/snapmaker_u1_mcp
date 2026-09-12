@@ -12,7 +12,7 @@ from .profiles import ProfileSelection, ProfileStore, discover_profile_roots
 from .slicer import locate_slicer, list_models, run_smoke_slice, u1_analyze_gcode as analyze_gcode_file, u1_compare_orientations as compare_orientations, u1_compare_slices as compare_slices, u1_compare_transformed_orientations as compare_transformed_orientations, u1_delete_run as delete_run, u1_get_run as get_run, u1_get_run_logs as get_run_logs, u1_health, u1_list_runs as list_runs, u1_slice as slice_model
 from .transform import u1_transform_model as transform_model
 from .recipes import u1_compare_recipes as compare_recipes, u1_get_recipe as get_recipe, u1_list_recipes as list_recipes
-from .reports import u1_export_run_report as export_run_report, u1_reproduce_run as reproduce_run, u1_search_runs as search_runs
+from .reports import u1_export_run_report as export_run_report, u1_export_runs_report as export_runs_report, u1_reproduce_run as reproduce_run, u1_search_runs as search_runs
 
 
 def _profile_store() -> ProfileStore:
@@ -154,6 +154,9 @@ def main() -> None:
     delete.add_argument("--confirm", action="store_true")
     report = sub.add_parser("export-run-report")
     report.add_argument("run_id")
+    reports = sub.add_parser("export-runs-report")
+    reports.add_argument("run_ids", help="JSON array of run IDs")
+    reports.add_argument("--name", default="comparison")
     reproduce = sub.add_parser("reproduce-run")
     reproduce.add_argument("run_id")
     reproduce.add_argument("--verbose", action="store_true")
@@ -249,6 +252,8 @@ def main() -> None:
             print(json.dumps(delete_run(args.run_id, args.confirm), indent=2))
         elif args.command == "export-run-report":
             print(json.dumps(export_run_report(args.run_id), indent=2))
+        elif args.command == "export-runs-report":
+            print(json.dumps(export_runs_report(json.loads(args.run_ids), args.name), indent=2))
         elif args.command == "reproduce-run":
             print(json.dumps(reproduce_run(args.run_id, args.verbose), indent=2))
         elif args.command == "inspect-model":
@@ -368,6 +373,11 @@ def _run_mcp_stdio() -> None:
     def u1_export_run_report(run_id: str) -> dict:
         """Write a Markdown summary report into a run directory."""
         return export_run_report(run_id)
+
+    @mcp.tool()
+    def u1_export_runs_report(run_ids: list[str], name: str = "comparison") -> dict:
+        """Write a Markdown comparison report for multiple runs."""
+        return export_runs_report(run_ids, name)
 
     @mcp.tool()
     def u1_reproduce_run(run_id: str, verbose: bool = False) -> dict:

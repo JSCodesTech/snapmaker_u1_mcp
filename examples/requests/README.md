@@ -4,4 +4,4 @@ These JSON files are illustrative request bodies for MCP clients/agents. They do
 
 Replace `example.stl` and `YYYYMMDD-HHMMSS-xxxxxxxx` with values from your configured `U1_MODEL_DIR` and `U1_OUTPUT_DIR`.
 
-`compare-transformed-orientations.json` demonstrates orientation comparison by creating local transformed STL copies instead of using Snapmaker Orca CLI rotation flags.
+`compare-transformed-orientations.json` demonstrates orientation comparison by creating local transformed STL/3MF copies instead of using Snapmaker Orca CLI rotation flags.

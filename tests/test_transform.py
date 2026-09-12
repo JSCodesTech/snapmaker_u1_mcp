@@ -1,6 +1,7 @@
 import json
 import struct
 from pathlib import Path
+import zipfile
 
 import pytest
 
@@ -39,17 +40,29 @@ def test_transform_model_rotates_stl_under_output_dir(tmp_path, monkeypatch):
     assert (output.parent / "transform.json").exists()
 
 
-def test_transform_rejects_3mf_for_now(tmp_path, monkeypatch):
+def test_transform_model_rotates_3mf_under_output_dir(tmp_path, monkeypatch):
     model_dir = tmp_path / "models"
     output_dir = tmp_path / "output"
     model_dir.mkdir()
     output_dir.mkdir()
-    (model_dir / "part.3mf").write_text("x", encoding="utf-8")
+    model_xml = '''<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+  <resources><object id="1" type="model"><mesh><vertices>
+    <vertex x="0" y="0" z="0"/><vertex x="10" y="0" z="0"/><vertex x="0" y="20" z="0"/>
+  </vertices><triangles><triangle v1="0" v2="1" v3="2"/></triangles></mesh></object></resources>
+  <build><item objectid="1"/></build>
+</model>'''
+    with zipfile.ZipFile(model_dir / "part.3mf", "w") as archive:
+        archive.writestr("3D/3dmodel.model", model_xml)
     monkeypatch.setenv("U1_MODEL_DIR", str(model_dir))
     monkeypatch.setenv("U1_OUTPUT_DIR", str(output_dir))
 
-    with pytest.raises(Exception, match="STL only"):
-        u1_transform_model("part.3mf", rotate_x=90)
+    result = u1_transform_model("part.3mf", rotate=90)
+
+    assert result["status"] == "ok"
+    assert Path(result["output_path"]).suffix == ".3mf"
+    assert result["dimensions"]["x"] == pytest.approx(20.0)
+    assert result["dimensions"]["y"] == pytest.approx(10.0)
 
 
 def test_compare_transformed_orientations_uses_transformed_paths(tmp_path, monkeypatch):

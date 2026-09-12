@@ -20,7 +20,7 @@ MCP client / CLI
 - `slicer.py` — orchestration of slicing workflows and comparisons
 - `gcode.py` — G-code metadata analysis
 - `models.py` — STL/3MF model inspection
-- `transform.py` — local STL rotation copies for safer orientation comparisons
+- `transform.py` — local STL/3MF rotation copies for safer orientation comparisons
 - `preview.py` — lightweight SVG preview rendering
 - `thumbnail.py` — metadata-only thumbnail injection into copied G-code files
 - `server.py` — CLI and MCP tool registration only
@@ -40,7 +40,7 @@ MCP client / CLI
 - No GUI automation.
 - Subprocess commands are built as argument lists with `shell=False`.
 - Models are restricted to `U1_MODEL_DIR`.
-- Generated G-code, transformed STL copies, and analysis paths are restricted to `U1_OUTPUT_DIR`.
+- Generated G-code, transformed model copies, and analysis paths are restricted to `U1_OUTPUT_DIR`.
 - Slice outputs use unique run directories and preserve reproducibility artifacts.
 - Original Snapmaker profiles are never modified.
 

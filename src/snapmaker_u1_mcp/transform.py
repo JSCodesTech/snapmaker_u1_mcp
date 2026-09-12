@@ -6,6 +6,8 @@ import math
 import struct
 import time
 import uuid
+import zipfile
+import xml.etree.ElementTree as ET
 
 from .config import Config
 from .errors import ConfigurationError
@@ -21,15 +23,15 @@ def u1_transform_model(
     rotate_y: float = 0.0,
     translate_to_origin: bool = True,
 ) -> dict:
-    """Create a transformed STL copy under U1_OUTPUT_DIR/transformed."""
+    """Create a transformed STL/3MF copy under U1_OUTPUT_DIR/transformed."""
     config = Config.from_env()
     source = safe_file(config.model_dir, model, SUPPORTED_MODEL_EXTENSIONS, label="Model")
-    if source.suffix.lower() != ".stl":
-        raise ConfigurationError("Model transforms currently support STL only")
+    if source.suffix.lower() not in {".stl", ".3mf"}:
+        raise ConfigurationError("Model transforms currently support STL and 3MF only")
     angles = _angles(rotate=rotate, rotate_x=rotate_x, rotate_y=rotate_y)
     out_dir = config.output_dir.expanduser().resolve() / "transformed" / f"{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:8]}"
     out_dir.mkdir(parents=True, exist_ok=True)
-    output = out_dir / f"{source.stem}.transformed.stl"
+    output = out_dir / f"{source.stem}.transformed{source.suffix.lower()}"
     metadata = _transform_stl(source, output, angles, translate_to_origin)
     request = {
         "source_model": model,
@@ -54,13 +56,13 @@ def transform_model_to_path(
     rotate_y: float = 0.0,
     translate_to_origin: bool = True,
 ) -> dict:
-    """Internal helper for slice workflows that need a transformed STL path."""
+    """Internal helper for slice workflows that need a transformed model path."""
     config = Config.from_env()
     source = safe_file(config.model_dir, model, SUPPORTED_MODEL_EXTENSIONS, label="Model")
-    if source.suffix.lower() != ".stl":
-        raise ConfigurationError("Model transforms currently support STL only")
+    if source.suffix.lower() not in {".stl", ".3mf"}:
+        raise ConfigurationError("Model transforms currently support STL and 3MF only")
     output_dir.mkdir(parents=True, exist_ok=True)
-    output = output_dir / f"{source.stem}.transformed.stl"
+    output = output_dir / f"{source.stem}.transformed{source.suffix.lower()}"
     angles = _angles(rotate=rotate, rotate_x=rotate_x, rotate_y=rotate_y)
     metadata = _transform_stl(source, output, angles, translate_to_origin)
     request = {
@@ -91,6 +93,8 @@ def _angles(**values: float) -> dict[str, float]:
 
 
 def _transform_stl(source: Path, output: Path, angles: dict[str, float], translate_to_origin: bool) -> dict:
+    if source.suffix.lower() == ".3mf":
+        return _transform_3mf(source, output, angles, translate_to_origin)
     data = source.read_bytes()
     if _looks_binary_stl(data):
         return _transform_binary_stl(data, output, angles, translate_to_origin)
@@ -165,6 +169,60 @@ def _transform_ascii_stl(text: str, output: Path, angles: dict[str, float], tran
             out_lines.append(line)
     output.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
     return _metadata(vertices, sum(1 for line in lines if line.strip().startswith("facet normal")) or None)
+
+
+def _transform_3mf(source: Path, output: Path, angles: dict[str, float], translate_to_origin: bool) -> dict:
+    entries: dict[str, bytes] = {}
+    transformed_vertices: list[tuple[float, float, float]] = []
+    triangle_count = 0
+    vertex_records: list[tuple[ET.Element, tuple[float, float, float]]] = []
+    models: dict[str, ET.ElementTree] = {}
+
+    with zipfile.ZipFile(source, "r") as archive:
+        for name in archive.namelist():
+            entries[name] = archive.read(name)
+            if not (name.startswith("3D/") and name.endswith(".model")):
+                continue
+            root = ET.fromstring(entries[name])
+            tree = ET.ElementTree(root)
+            models[name] = tree
+            ns = {"m": root.tag.split("}")[0].strip("{")} if root.tag.startswith("{") else {}
+            vertices = root.findall(".//m:vertex", ns) if ns else root.findall(".//vertex")
+            triangles = root.findall(".//m:triangle", ns) if ns else root.findall(".//triangle")
+            triangle_count += len(triangles)
+            for vertex in vertices:
+                try:
+                    point = (float(vertex.attrib["x"]), float(vertex.attrib["y"]), float(vertex.attrib["z"]))
+                except (KeyError, ValueError):
+                    continue
+                rotated = _rotate_point(point, angles)
+                vertex_records.append((vertex, rotated))
+                transformed_vertices.append(rotated)
+
+    if translate_to_origin and transformed_vertices:
+        min_x = min(p[0] for p in transformed_vertices)
+        min_y = min(p[1] for p in transformed_vertices)
+        min_z = min(p[2] for p in transformed_vertices)
+        transformed_vertices = [(p[0] - min_x, p[1] - min_y, p[2] - min_z) for p in transformed_vertices]
+        for index, (vertex, point) in enumerate(vertex_records):
+            translated = (point[0] - min_x, point[1] - min_y, point[2] - min_z)
+            vertex_records[index] = (vertex, translated)
+
+    for vertex, point in vertex_records:
+        vertex.set("x", f"{point[0]:.6f}")
+        vertex.set("y", f"{point[1]:.6f}")
+        vertex.set("z", f"{point[2]:.6f}")
+
+    for name, tree in models.items():
+        entries[name] = ET.tostring(tree.getroot(), encoding="utf-8", xml_declaration=True)
+
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, content in entries.items():
+            archive.writestr(name, content)
+
+    metadata = _metadata(transformed_vertices, triangle_count or None)
+    metadata["body_count"] = len(models)
+    return metadata
 
 
 def _rotate_point(point: tuple[float, float, float], angles: dict[str, float]) -> tuple[float, float, float]:
