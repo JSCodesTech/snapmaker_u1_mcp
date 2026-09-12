@@ -49,6 +49,7 @@ Recipes:
 
 - `u1_list_recipes`
 - `u1_get_recipe`
+- `u1_compare_recipes`
 
 Run management:
 
@@ -109,6 +110,10 @@ snapmaker-u1-mcp list-profiles --nozzle 0.4 --material PLA
 snapmaker-u1-mcp get-profile process "0.20 Standard @Snapmaker U1 (0.4 nozzle)"
 snapmaker-u1-mcp profile-source-chain process "0.20 Standard @Snapmaker U1 (0.4 nozzle)"
 snapmaker-u1-mcp list-recipes
+snapmaker-u1-mcp compare-recipes hase.stl \
+  --process "0.20 Standard @Snapmaker U1 (0.4 nozzle)" \
+  --filament "Snapmaker PLA Basic @U1" \
+  --recipes '["pla-draft","pla-strong"]'
 ```
 
 Inspect a model:

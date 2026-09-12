@@ -3,7 +3,7 @@ from pathlib import Path
 
 from snapmaker_u1_mcp import server
 from snapmaker_u1_mcp.models import u1_mesh_printability
-from snapmaker_u1_mcp.recipes import u1_get_recipe, u1_list_recipes
+from snapmaker_u1_mcp.recipes import u1_compare_recipes, u1_get_recipe, u1_list_recipes
 from snapmaker_u1_mcp.reports import u1_export_run_report, u1_search_runs
 
 
@@ -17,6 +17,22 @@ def test_recipes_available():
     assert recipes["status"] == "ok"
     assert "pla-draft" in recipes["recipes"]
     assert u1_get_recipe("petg-strong")["overrides"]["wall_loops"] == 5
+
+
+def test_compare_recipes_builds_variants(monkeypatch):
+    captured = {}
+
+    def fake_compare(**kwargs):
+        captured.update(kwargs)
+        return {"status": "ok", "variants": [], "table": ""}
+
+    monkeypatch.setattr("snapmaker_u1_mcp.slicer.u1_compare_slices", fake_compare)
+
+    result = u1_compare_recipes("part.stl", "process", "PLA", ["pla-draft", "pla-strong"])
+
+    assert result["status"] == "ok"
+    assert result["recipe_comparison"] is True
+    assert [variant["name"] for variant in captured["variants"]] == ["pla-draft", "pla-strong"]
 
 
 def test_profile_chain_and_diff(tmp_path, monkeypatch):

@@ -5,6 +5,7 @@ import json
 
 from .config import Config
 from .errors import ConfigurationError
+from .gcode import analyze_gcode
 from .slicer import u1_get_run, u1_list_runs, u1_slice
 
 
@@ -12,8 +13,13 @@ def u1_export_run_report(run_id: str) -> dict:
     run = u1_get_run(run_id)
     run_dir = Path(run["run_dir"])
     report = run_dir / "run-summary.md"
+    request = _read_json(run_dir / "request.json")
+    analysis = _read_json(run_dir / "analysis.json")
+    safety = analyze_gcode(Path(run["gcode"]), requested_material=run.get("filament")).get("safety_checks", {}) if run.get("gcode") else {}
     lines = [
         f"# Slice Run {run_id}",
+        "",
+        "## Summary",
         "",
         f"- Status: {run.get('status')}",
         f"- Model: {run.get('model')}",
@@ -25,11 +31,29 @@ def u1_export_run_report(run_id: str) -> dict:
         f"- Filament weight: {run.get('filament_weight')}",
         f"- Layers: {run.get('layer_count')}",
         "",
+        "## Request",
+        "",
+        "```json",
+        json.dumps(request, indent=2, sort_keys=True),
+        "```",
+        "",
+        "## Analysis",
+        "",
+        "```json",
+        json.dumps(analysis, indent=2, sort_keys=True),
+        "```",
+        "",
         "## Warnings",
         "",
     ]
     warnings = run.get("warnings") or []
     lines.extend(f"- {warning}" for warning in warnings) if warnings else lines.append("None")
+    safety_warnings = safety.get("warnings") or []
+    if safety_warnings:
+        lines.append("")
+        lines.append("## Safety checks")
+        lines.append("")
+        lines.extend(f"- {warning}" for warning in safety_warnings)
     lines.append("")
     lines.append("## Artifacts")
     lines.append("")
@@ -37,6 +61,16 @@ def u1_export_run_report(run_id: str) -> dict:
         lines.append(f"- {key}: {value}")
     report.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return {"status": "ok", "run_id": run_id, "report": str(report)}
+
+
+def _read_json(path: Path) -> dict:
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def u1_search_runs(model: str | None = None, filament: str | None = None, status: str | None = None, limit: int = 50) -> dict:

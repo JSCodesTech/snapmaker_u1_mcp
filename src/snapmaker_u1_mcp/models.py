@@ -68,26 +68,40 @@ def u1_mesh_printability(model: str, overhang_angle: float = 45.0) -> dict:
     threshold = -math.cos(math.radians(90 - overhang_angle))
     down = 0
     near_bed = 0
+    total_area = 0.0
+    down_area = 0.0
+    bed_contact_area = 0.0
     min_z = min(point[2] for tri in triangles for point in tri)
     for tri in triangles:
+        area = _triangle_area(tri)
+        total_area += area
         normal = _normal(tri)
         if normal[2] < threshold:
             down += 1
+            down_area += area
         if all(abs(point[2] - min_z) < 0.05 for point in tri):
             near_bed += 1
+            bed_contact_area += area
     warnings = []
     ratio = down / len(triangles)
-    if ratio > 0.2:
-        warnings.append("High amount of downward-facing geometry; supports may be needed")
-    if near_bed == 0:
-        warnings.append("No flat triangles detected at the lowest Z; bed contact may be limited")
+    area_ratio = down_area / total_area if total_area else 0.0
+    contact_ratio = bed_contact_area / total_area if total_area else 0.0
+    if area_ratio > 0.2:
+        warnings.append("High downward-facing surface area; supports may be needed")
+    if near_bed == 0 or contact_ratio < 0.01:
+        warnings.append("Low flat contact area at the lowest Z; bed adhesion may be limited")
     return {
         "status": "ok",
         "model": model,
         "triangle_count": len(triangles),
+        "surface_area_estimate": total_area,
         "downward_overhang_triangles": down,
         "downward_overhang_ratio": ratio,
+        "downward_overhang_area": down_area,
+        "downward_overhang_area_ratio": area_ratio,
         "bed_contact_triangles": near_bed,
+        "bed_contact_area": bed_contact_area,
+        "bed_contact_area_ratio": contact_ratio,
         "warnings": warnings,
     }
 
@@ -363,6 +377,14 @@ def _stl_triangles(path: Path) -> list[list[tuple[float, float, float]]]:
                 triangles.append(points)
                 points = []
     return triangles
+
+
+def _triangle_area(tri: list[tuple[float, float, float]]) -> float:
+    a, b, c = tri
+    ux, uy, uz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+    vx, vy, vz = c[0] - a[0], c[1] - a[1], c[2] - a[2]
+    nx, ny, nz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
+    return math.sqrt(nx * nx + ny * ny + nz * nz) / 2
 
 
 def _normal(tri: list[tuple[float, float, float]]) -> tuple[float, float, float]:

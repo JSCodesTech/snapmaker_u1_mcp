@@ -34,3 +34,27 @@ def u1_get_recipe(name: str) -> dict:
     if not recipe:
         raise ConfigurationError(f"Unknown recipe {name!r}; available: {sorted(RECIPES)}")
     return {"status": "ok", "name": name, **recipe}
+
+
+def u1_compare_recipes(
+    model: str,
+    process: str,
+    filament: str,
+    recipes: list[str],
+    nozzle: float = 0.4,
+    verbose: bool = False,
+) -> dict:
+    """Slice one process with multiple built-in recipe override sets."""
+    if not recipes:
+        raise ConfigurationError("recipes must be a non-empty list")
+    variants = []
+    for name in recipes:
+        recipe = RECIPES.get(name)
+        if not recipe:
+            raise ConfigurationError(f"Unknown recipe {name!r}; available: {sorted(RECIPES)}")
+        variants.append({"name": name, "process": process, "overrides": recipe["overrides"]})
+    from .slicer import u1_compare_slices
+    result = u1_compare_slices(model=model, filament=filament, variants=variants, nozzle=nozzle, verbose=verbose)
+    result["recipe_comparison"] = True
+    result["recipes"] = {name: RECIPES[name] for name in recipes}
+    return result

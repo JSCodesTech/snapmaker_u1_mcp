@@ -11,7 +11,7 @@ from .thumbnail import u1_inject_thumbnail as inject_thumbnail
 from .profiles import ProfileSelection, ProfileStore, discover_profile_roots
 from .slicer import locate_slicer, list_models, run_smoke_slice, u1_analyze_gcode as analyze_gcode_file, u1_compare_orientations as compare_orientations, u1_compare_slices as compare_slices, u1_compare_transformed_orientations as compare_transformed_orientations, u1_delete_run as delete_run, u1_get_run as get_run, u1_get_run_logs as get_run_logs, u1_health, u1_list_runs as list_runs, u1_slice as slice_model
 from .transform import u1_transform_model as transform_model
-from .recipes import u1_get_recipe as get_recipe, u1_list_recipes as list_recipes
+from .recipes import u1_compare_recipes as compare_recipes, u1_get_recipe as get_recipe, u1_list_recipes as list_recipes
 from .reports import u1_export_run_report as export_run_report, u1_reproduce_run as reproduce_run, u1_search_runs as search_runs
 
 
@@ -205,6 +205,13 @@ def main() -> None:
     recipes = sub.add_parser("list-recipes")
     recipe = sub.add_parser("get-recipe")
     recipe.add_argument("name")
+    recipe_compare = sub.add_parser("compare-recipes")
+    recipe_compare.add_argument("model")
+    recipe_compare.add_argument("--process", required=True)
+    recipe_compare.add_argument("--filament", required=True)
+    recipe_compare.add_argument("--recipes", required=True, help="JSON array of recipe names")
+    recipe_compare.add_argument("--nozzle", type=float, default=0.4)
+    recipe_compare.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
     try:
@@ -273,6 +280,8 @@ def main() -> None:
             print(json.dumps(list_recipes(), indent=2))
         elif args.command == "get-recipe":
             print(json.dumps(get_recipe(args.name), indent=2))
+        elif args.command == "compare-recipes":
+            print(json.dumps(compare_recipes(args.model, args.process, args.filament, json.loads(args.recipes), args.nozzle, args.verbose), indent=2))
         else:
             # If launched by an MCP client, start stdio server when mcp is installed.
             _run_mcp_stdio()
@@ -434,6 +443,11 @@ def _run_mcp_stdio() -> None:
     def u1_get_recipe(name: str) -> dict:
         """Return one built-in override recipe."""
         return get_recipe(name)
+
+    @mcp.tool()
+    def u1_compare_recipes(model: str, process: str, filament: str, recipes: list[str], nozzle: float = 0.4, verbose: bool = False) -> dict:
+        """Compare built-in recipe override sets using the same process/filament."""
+        return compare_recipes(model, process, filament, recipes, nozzle, verbose)
 
     @mcp.tool()
     def u1_smoke_slice(model: str, process: str, filament: str, nozzle: float = 0.4, verbose: bool = False) -> dict:

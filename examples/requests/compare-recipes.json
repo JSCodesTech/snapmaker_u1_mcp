@@ -1,0 +1,10 @@
+{
+  "tool": "u1_compare_recipes",
+  "args": {
+    "model": "example.stl",
+    "process": "0.20 Standard @Snapmaker U1 (0.4 nozzle)",
+    "filament": "Snapmaker PLA Basic @U1",
+    "recipes": ["pla-draft", "pla-strong"],
+    "nozzle": 0.4
+  }
+}
