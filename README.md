@@ -101,6 +101,39 @@ A template is included at `examples/mcp/pi-mcp.json`. Copy it into your MCP clie
 
 Keep your personal MCP config out of git.
 
+## How to use the MCP
+
+Use the MCP as a batch/reproducibility assistant, not as a replacement for manually reviewing prints in Snapmaker Orca.
+
+Good MCP use cases:
+
+- compare a small number of slice variants
+- check model dimensions and printability warnings
+- test orientations using local transformed model copies
+- inspect profiles and explain compatibility
+- analyze generated G-code
+- export run reports for later review
+
+Example prompts:
+
+```text
+Check Snapmaker U1 health and list my PLA profiles for a 0.4 mm nozzle.
+```
+
+```text
+Inspect hase.stl, run printability checks, and render a summary preview.
+```
+
+```text
+Compare baseline, pla-draft, and pla-strong for hase.stl. Return only a compact table and recommendation.
+```
+
+```text
+Compare flat and X90 using transformed orientations, not Snapmaker Orca CLI rotation flags.
+```
+
+Keep usage low-cost by being specific. Prefer 2–4 variants per request and ask for compact summaries. Use Snapmaker Orca GUI for final visual review, manual support decisions, and one-off simple prints.
+
 ## CLI examples
 
 List models and profiles:
@@ -194,6 +227,7 @@ Snapmaker Orca Linux CLI `01.10.01.50` has been observed to crash with some prof
 For setup and troubleshooting, see:
 
 - `docs/INSTALL.md`
+- `docs/MCP_USAGE.md`
 - `docs/TROUBLESHOOTING.md`
 - `docs/ARCHITECTURE.md`
 - `examples/requests/`
