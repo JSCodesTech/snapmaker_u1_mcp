@@ -5,7 +5,7 @@ import json
 import sys
 
 from .config import Config
-from .models import u1_inspect_model as inspect_model, u1_mesh_printability as mesh_printability, u1_model_diagnostics as model_diagnostics, u1_orientation_preflight as orientation_preflight
+from .models import u1_inspect_model as inspect_model, u1_mesh_printability as mesh_printability, u1_model_diagnostics as model_diagnostics, u1_multimaterial_readiness as multimaterial_readiness, u1_orientation_preflight as orientation_preflight
 from .preview import u1_render_preview as render_preview, u1_render_preview_bundle as render_preview_bundle
 from .thumbnail import u1_inject_thumbnail as inject_thumbnail
 from .profiles import ProfileSelection, ProfileStore, discover_profile_roots
@@ -167,6 +167,8 @@ def main() -> None:
     mesh = sub.add_parser("mesh-printability")
     mesh.add_argument("model")
     mesh.add_argument("--overhang-angle", type=float, default=45.0)
+    multi = sub.add_parser("multimaterial-readiness")
+    multi.add_argument("--model")
     orient_preflight = sub.add_parser("orientation-preflight")
     orient_preflight.add_argument("model")
     transform = sub.add_parser("transform-model")
@@ -262,6 +264,8 @@ def main() -> None:
             print(json.dumps(model_diagnostics(args.model), indent=2))
         elif args.command == "mesh-printability":
             print(json.dumps(mesh_printability(args.model, args.overhang_angle), indent=2))
+        elif args.command == "multimaterial-readiness":
+            print(json.dumps(multimaterial_readiness(args.model), indent=2))
         elif args.command == "orientation-preflight":
             print(json.dumps(orientation_preflight(args.model), indent=2))
         elif args.command == "transform-model":
@@ -423,6 +427,11 @@ def _run_mcp_stdio() -> None:
     def u1_mesh_printability(model: str, overhang_angle: float = 45.0) -> dict:
         """Estimate simple STL overhang/contact metrics without slicing."""
         return mesh_printability(model, overhang_angle)
+
+    @mcp.tool()
+    def u1_multimaterial_readiness(model: str | None = None) -> dict:
+        """Report current multi-material support/readiness without enabling it."""
+        return multimaterial_readiness(model)
 
     @mcp.tool()
     def u1_orientation_preflight(model: str) -> dict:

@@ -34,9 +34,36 @@ def u1_inspect_model(model: str) -> dict:
         "file_size": model_path.stat().st_size,
         "build_volume": build_volume,
         "fits_u1_build_volume": _fits(info.get("dimensions"), build_volume),
+        "single_material_ready": _single_material_ready(info),
     })
     info["warnings"] = _model_warnings(info, build_volume)
     return info
+
+
+def u1_multimaterial_readiness(model: str | None = None) -> dict:
+    """Report current multi-material support/readiness without enabling it."""
+    response = {
+        "status": "ok",
+        "supported": False,
+        "mode": "single-material-only",
+        "reason": "This server intentionally supports single-material slicing only.",
+        "guardrails": [
+            "one process profile",
+            "one filament profile",
+            "no printer upload/start",
+            "multi-tool G-code is warned about during analysis",
+        ],
+    }
+    if model:
+        inspection = u1_inspect_model(model)
+        response["model"] = model
+        response["body_count"] = inspection.get("body_count")
+        response["single_material_ready"] = inspection.get("single_material_ready")
+        if (inspection.get("body_count") or 0) > 1:
+            response["warnings"] = ["Model appears to contain multiple bodies/components; current slicing still assigns one filament profile to the whole model."]
+        else:
+            response["warnings"] = []
+    return response
 
 
 def u1_model_diagnostics(model: str) -> dict:
@@ -258,6 +285,15 @@ def _fits(dimensions: dict | None, build_volume: dict[str, float]) -> bool | Non
     return all(d <= b for d, b in zip(dims, bed))
 
 
+def _single_material_ready(info: dict) -> bool | None:
+    if not info.get("valid_mesh"):
+        return False
+    body_count = info.get("body_count")
+    if isinstance(body_count, int) and body_count > 1:
+        return False
+    return True
+
+
 def _model_warnings(info: dict, build_volume: dict[str, float]) -> list[str]:
     warnings = []
     if not info.get("valid_mesh"):
@@ -267,6 +303,8 @@ def _model_warnings(info: dict, build_volume: dict[str, float]) -> list[str]:
     dims = info.get("dimensions") or {}
     if dims and min(dims.values()) <= 0:
         warnings.append("Model has a zero-sized bounding-box dimension")
+    if info.get("single_material_ready") is False and (info.get("body_count") or 0) > 1:
+        warnings.append("Model has multiple bodies/components; current slicing assigns one filament profile to the whole model")
     return warnings
 
 

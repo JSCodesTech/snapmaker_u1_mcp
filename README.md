@@ -37,6 +37,7 @@ Analysis and comparison:
 - `u1_inspect_model`
 - `u1_diagnose_model`
 - `u1_mesh_printability`
+- `u1_multimaterial_readiness`
 - `u1_orientation_preflight`
 
 Preview and metadata:
@@ -122,6 +123,7 @@ Inspect a model:
 snapmaker-u1-mcp inspect-model hase.stl
 snapmaker-u1-mcp diagnose-model hase.stl
 snapmaker-u1-mcp mesh-printability hase.stl
+snapmaker-u1-mcp multimaterial-readiness --model hase.stl
 snapmaker-u1-mcp orientation-preflight hase.stl
 snapmaker-u1-mcp transform-model hase.stl --rotate-x 90
 snapmaker-u1-mcp render-preview hase.stl --view summary

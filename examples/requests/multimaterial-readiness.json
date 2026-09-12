@@ -1,0 +1,6 @@
+{
+  "tool": "u1_multimaterial_readiness",
+  "args": {
+    "model": "example.stl"
+  }
+}
