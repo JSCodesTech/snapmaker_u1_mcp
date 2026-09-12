@@ -34,6 +34,8 @@ def analyze_gcode(path: Path, requested_material: str | None = None) -> dict:
     result["nozzle_temperatures"] = sorted(set(int(v) for v in re.findall(r"\bM10[49]\s+S(\d+)", text)))
     result["bed_temperatures"] = sorted(set(int(v) for v in re.findall(r"\bM(?:140|190)\s+S(\d+)", text)))
     result["tool_count"] = len(set(re.findall(r"^T(\d+)\b", text, re.MULTILINE))) or 1
+    result["safety_checks"] = _safety_checks(result, text, requested_material)
+    result["warnings"].extend(result["safety_checks"]["warnings"])
 
     if requested_material and result.get("detected_material"):
         requested = requested_material.lower()
@@ -43,6 +45,30 @@ def analyze_gcode(path: Path, requested_material: str | None = None) -> dict:
                 f"Requested material {requested_material!r} but G-code metadata appears to be {result['detected_material']!r}"
             )
     return result
+
+
+def _safety_checks(result: dict, text: str, requested_material: str | None) -> dict:
+    warnings: list[str] = []
+    nozzle_temps = [t for t in result.get("nozzle_temperatures", []) if t > 0]
+    bed_temps = [t for t in result.get("bed_temperatures", []) if t > 0]
+    material = str(requested_material or result.get("detected_material") or "").upper()
+    if result.get("tool_count", 1) > 1:
+        warnings.append(f"G-code uses {result['tool_count']} tools; current workflow is intended for single-material slicing")
+    if nozzle_temps and max(nozzle_temps) > 280:
+        warnings.append(f"High nozzle temperature detected: {max(nozzle_temps)} °C")
+    if bed_temps and max(bed_temps) > 120:
+        warnings.append(f"High bed temperature detected: {max(bed_temps)} °C")
+    if "PLA" in material and nozzle_temps and max(nozzle_temps) > 235:
+        warnings.append(f"PLA nozzle temperature looks high: {max(nozzle_temps)} °C")
+    if "PETG" in material and nozzle_temps and max(nozzle_temps) < 220:
+        warnings.append(f"PETG nozzle temperature looks low: {max(nozzle_temps)} °C")
+    if "TPU" in material and nozzle_temps and max(nozzle_temps) > 250:
+        warnings.append(f"TPU nozzle temperature looks high: {max(nozzle_temps)} °C")
+    if not re.search(r"\bM84\b|\bM18\b", text):
+        warnings.append("No motor-disable command M84/M18 detected near end of G-code")
+    if not re.search(r"\bM10[49]\s+S0\b", text):
+        warnings.append("No nozzle heater-off command detected")
+    return {"warnings": warnings}
 
 
 def _first_match(text: str, patterns: list[str]) -> str | None:

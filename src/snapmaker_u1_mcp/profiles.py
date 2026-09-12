@@ -98,6 +98,35 @@ class ProfileStore:
     def resolve_profile(self, name: str, profile_type: str) -> dict:
         return self._resolve_path(self.find_profile_path(name, profile_type), profile_type, [])
 
+    def profile_source_chain(self, name: str, profile_type: str) -> list[dict]:
+        """Return child-to-parent source chain for one profile."""
+        chain: list[dict] = []
+        path = self.find_profile_path(name, profile_type)
+        seen: set[Path] = set()
+        while True:
+            path = path.resolve()
+            if path in seen:
+                raise ProfileError("Profile inheritance cycle detected while building source chain")
+            seen.add(path)
+            data = _load_json(path)
+            profile_name = str(data.get("name") or data.get("filament_settings_id") or data.get("print_settings_id") or path.stem)
+            parent = data.get("inherits")
+            chain.append({"name": profile_name, "path": str(path), "inherits": parent})
+            if not parent:
+                return chain
+            path = self.find_profile_path(str(parent), profile_type, near=path)
+
+    def diff_profiles(self, left: str, right: str, profile_type: str) -> dict:
+        left_profile = self.resolve_profile(left, profile_type)
+        right_profile = self.resolve_profile(right, profile_type)
+        keys = sorted(set(left_profile) | set(right_profile))
+        changed = {
+            key: {"left": left_profile.get(key), "right": right_profile.get(key)}
+            for key in keys
+            if left_profile.get(key) != right_profile.get(key)
+        }
+        return {"left": left, "right": right, "kind": profile_type, "changed": changed, "changed_count": len(changed)}
+
     def suggest_profiles(self, query: str, profile_type: str, limit: int = 8) -> list[str]:
         _check_type(profile_type)
         query_tokens = _tokens(query)

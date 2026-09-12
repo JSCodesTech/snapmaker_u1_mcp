@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import math
 import struct
 import zipfile
 import xml.etree.ElementTree as ET
@@ -52,6 +53,42 @@ def u1_model_diagnostics(model: str) -> dict:
         "dimensions": dims,
         "diagnostics": diagnostics,
         "inspection_warnings": inspection.get("warnings", []),
+    }
+
+
+def u1_mesh_printability(model: str, overhang_angle: float = 45.0) -> dict:
+    """Estimate simple STL overhang/contact metrics without slicing."""
+    config = Config.from_env()
+    model_path = _safe_model_path(config.model_dir, model)
+    if model_path.suffix.lower() != ".stl":
+        raise ConfigurationError("Mesh printability currently supports STL only")
+    triangles = _stl_triangles(model_path)
+    if not triangles:
+        return {"status": "warning", "model": model, "warnings": ["No STL triangles found"]}
+    threshold = -math.cos(math.radians(90 - overhang_angle))
+    down = 0
+    near_bed = 0
+    min_z = min(point[2] for tri in triangles for point in tri)
+    for tri in triangles:
+        normal = _normal(tri)
+        if normal[2] < threshold:
+            down += 1
+        if all(abs(point[2] - min_z) < 0.05 for point in tri):
+            near_bed += 1
+    warnings = []
+    ratio = down / len(triangles)
+    if ratio > 0.2:
+        warnings.append("High amount of downward-facing geometry; supports may be needed")
+    if near_bed == 0:
+        warnings.append("No flat triangles detected at the lowest Z; bed contact may be limited")
+    return {
+        "status": "ok",
+        "model": model,
+        "triangle_count": len(triangles),
+        "downward_overhang_triangles": down,
+        "downward_overhang_ratio": ratio,
+        "bed_contact_triangles": near_bed,
+        "warnings": warnings,
     }
 
 
@@ -296,6 +333,47 @@ def _fits_axis_aligned(dimensions: dict, build_volume: dict[str, float]) -> bool
         and float(dimensions["y"]) <= float(build_volume["y"])
         and float(dimensions["z"]) <= float(build_volume["z"])
     )
+
+
+def _stl_triangles(path: Path) -> list[list[tuple[float, float, float]]]:
+    data = path.read_bytes()
+    if _looks_binary_stl(data):
+        count = struct.unpack_from("<I", data, 80)[0]
+        triangles = []
+        offset = 84
+        for _ in range(count):
+            offset += 12
+            tri = []
+            for _vertex in range(3):
+                tri.append(struct.unpack_from("<fff", data, offset))
+                offset += 12
+            offset += 2
+            triangles.append(tri)
+        return triangles
+    points = []
+    triangles = []
+    for line in data.decode("utf-8", errors="replace").splitlines():
+        parts = line.strip().split()
+        if len(parts) == 4 and parts[0] == "vertex":
+            try:
+                points.append((float(parts[1]), float(parts[2]), float(parts[3])))
+            except ValueError:
+                pass
+            if len(points) == 3:
+                triangles.append(points)
+                points = []
+    return triangles
+
+
+def _normal(tri: list[tuple[float, float, float]]) -> tuple[float, float, float]:
+    a, b, c = tri
+    ux, uy, uz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+    vx, vy, vz = c[0] - a[0], c[1] - a[1], c[2] - a[2]
+    nx, ny, nz = uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx
+    length = math.sqrt(nx * nx + ny * ny + nz * nz)
+    if not length:
+        return (0.0, 0.0, 0.0)
+    return (nx / length, ny / length, nz / length)
 
 
 def _float_or_none(value) -> float | None:

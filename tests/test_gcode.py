@@ -40,7 +40,8 @@ def test_analyze_gcode_extracts_metadata(tmp_path):
     assert result["nozzle_temperatures"] == [240, 245]
     assert result["bed_temperatures"] == [80, 85]
     assert result["tool_count"] == 2
-    assert result["warnings"] == []
+    assert result["safety_checks"]["warnings"]
+    assert any("2 tools" in warning for warning in result["warnings"])
 
 
 def test_analyze_gcode_material_mismatch_warns(tmp_path):

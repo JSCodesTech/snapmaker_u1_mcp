@@ -21,6 +21,8 @@ Core:
 - `u1_list_models`
 - `u1_list_profiles`
 - `u1_get_profile`
+- `u1_profile_source_chain`
+- `u1_diff_profiles`
 - `u1_explain_profile_selection`
 - `u1_slice`
 - `u1_smoke_slice`
@@ -34,6 +36,7 @@ Analysis and comparison:
 - `u1_compare_transformed_orientations`
 - `u1_inspect_model`
 - `u1_diagnose_model`
+- `u1_mesh_printability`
 - `u1_orientation_preflight`
 
 Preview and metadata:
@@ -42,11 +45,19 @@ Preview and metadata:
 - `u1_render_preview_bundle`
 - `u1_inject_thumbnail`
 
+Recipes:
+
+- `u1_list_recipes`
+- `u1_get_recipe`
+
 Run management:
 
 - `u1_list_runs`
 - `u1_get_run`
 - `u1_get_run_logs`
+- `u1_search_runs`
+- `u1_export_run_report`
+- `u1_reproduce_run`
 - `u1_delete_run`
 
 ## Install
@@ -96,6 +107,8 @@ List models and profiles:
 snapmaker-u1-mcp list-models
 snapmaker-u1-mcp list-profiles --nozzle 0.4 --material PLA
 snapmaker-u1-mcp get-profile process "0.20 Standard @Snapmaker U1 (0.4 nozzle)"
+snapmaker-u1-mcp profile-source-chain process "0.20 Standard @Snapmaker U1 (0.4 nozzle)"
+snapmaker-u1-mcp list-recipes
 ```
 
 Inspect a model:
@@ -103,6 +116,7 @@ Inspect a model:
 ```bash
 snapmaker-u1-mcp inspect-model hase.stl
 snapmaker-u1-mcp diagnose-model hase.stl
+snapmaker-u1-mcp mesh-printability hase.stl
 snapmaker-u1-mcp orientation-preflight hase.stl
 snapmaker-u1-mcp transform-model hase.stl --rotate-x 90
 snapmaker-u1-mcp render-preview hase.stl --view summary
@@ -140,6 +154,8 @@ Inspect generated runs:
 snapmaker-u1-mcp list-runs --limit 10
 snapmaker-u1-mcp get-run RUN_ID
 snapmaker-u1-mcp get-run-logs RUN_ID --tail 2000
+snapmaker-u1-mcp search-runs --model hase --status ok
+snapmaker-u1-mcp export-run-report RUN_ID
 ```
 
 Delete a generated run only when intentional:
