@@ -1,0 +1,7 @@
+{
+  "tool": "u1_get_run_logs",
+  "args": {
+    "run_id": "YYYYMMDD-HHMMSS-xxxxxxxx",
+    "tail": 4000
+  }
+}

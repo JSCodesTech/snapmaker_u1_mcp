@@ -1,0 +1,8 @@
+{
+  "tool": "u1_explain_profile_selection",
+  "args": {
+    "process": "0.20 Standard @Snapmaker U1 (0.4 nozzle)",
+    "filament": "Snapmaker PLA Basic @U1",
+    "nozzle": 0.4
+  }
+}

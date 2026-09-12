@@ -1,0 +1,12 @@
+{
+  "tool": "u1_slice",
+  "args": {
+    "model": "example.stl",
+    "process": "0.20 Standard @Snapmaker U1 (0.4 nozzle)",
+    "filament": "Snapmaker PLA Basic @U1",
+    "nozzle": 0.4,
+    "overrides": {
+      "wall_loops": 3
+    }
+  }
+}

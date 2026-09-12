@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "snapmaker-u1": {
+      "type": "stdio",
+      "command": "/absolute/path/to/snapmaker-u1-mcp/.venv/bin/python",
+      "args": [
+        "-m",
+        "snapmaker_u1_mcp.server"
+      ],
+      "env": {
+        "SNAPMAKER_ORCA_BIN": "/absolute/path/to/Snapmaker_Orca.AppImage-or-extracted-AppRun",
+        "U1_MODEL_DIR": "/absolute/path/to/models",
+        "U1_OUTPUT_DIR": "/absolute/path/to/output"
+      }
+    }
+  }
+}

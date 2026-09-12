@@ -1,0 +1,9 @@
+[run]
+source = src/snapmaker_u1_mcp
+
+[report]
+show_missing = true
+fail_under = 80
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
